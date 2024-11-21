@@ -1,0 +1,145 @@
+#include "USBHost_t36.h"
+USBHost myusb;
+USBHIDParser hid1(myusb);
+JoystickController joystick(myusb);
+BluetoothController bluet(myusb, true, "0000");
+
+// direction pins
+int IN1 = 2; // Motor 1
+int IN2 = 0; // Motor 2
+int IN3 = 6; // Motor 3
+
+// PWM pins for speed control
+int ENA = 3; // Motor 1 
+int ENB = 1; // Motor 2 
+int ENC = 7; // Motor 3 
+
+// Joystick axes
+int rightX, rightY, leftX;
+
+void setup() {
+ 
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(ENA, OUTPUT);
+  pinMode(ENB, OUTPUT);
+  pinMode(ENC, OUTPUT);
+
+  // Teensy check
+  pinMode(13, OUTPUT);
+  digitalWrite(13, HIGH);
+
+  Serial.begin(9600);
+
+  myusb.begin();
+  delay(2000);
+
+  // Setting motors off
+  analogWrite(ENA, 0);
+  analogWrite(ENB, 0);
+  analogWrite(ENC, 0);
+}
+
+void loop() {
+  myusb.Task();
+  if (joystick.available()) {
+    // Read joystick inputs
+    int leftStickX = joystick.getAxis(0);  // Left joystick x-axis for rotation
+    leftX = map(leftStickX, 0, 255, -127, 127); //mapping the joystick values to centre around 0
+
+    int rightStickX = joystick.getAxis(2); // Right joystick x-axis
+    rightX = map(rightStickX, 0, 255, -127, 127); //mapping the joystick values to centre around 0
+
+
+    int rightStickY = joystick.getAxis(5); // Right joystick y-axis
+    rightY = map(rightStickY, 0, 255, 127, -127);//mapping the joystick values to centre around 0
+
+
+    
+  } else {
+    Serial.println("Joystick Not Found");
+    return;
+  }
+
+  // Calculate motor speeds using inverse kinematics
+  int V1 = rightX * (-0.67) + rightY * 0 + leftX * 0.33;
+  int V2 = rightX * (0.67 / 2) + rightY * (-0.57) + leftX * 0.33;
+  int V3 = rightX * (0.67 / 2) + rightY * (0.57) + leftX * 0.33;
+
+  // checking speeds
+  Serial.print("V1: ");
+  Serial.println(V1);
+  Serial.print("V2: ");
+  Serial.println(V2);
+  Serial.print("V3: ");
+  Serial.println(V3);
+
+  // Run motors
+  runMotor1(V1);
+  runMotor2(V2);
+  runMotor3(V3);
+
+  delay(200); // small delay for smoothness
+}
+
+// Function to run Motor 1
+void runMotor1(int speed) {
+  int pwmValue = map(abs(speed), 0, 127, 0, 100);  //mapping the pwm with the inopts of the joystick
+  pwmValue = constrain(pwmValue, 0, 100);          //limits the pwm to 100 max speed 
+
+  Serial.print("wheel 1: ");
+  Serial.print(pwmValue);
+
+  if (speed > 0) {
+    digitalWrite(IN1, HIGH);  //setting diection according to joystick input
+  } else if (speed < 0) {
+    digitalWrite(IN1, LOW);   //setting diection according to joystick input
+  } else {
+    pwmValue = 0;             
+  }
+
+  analogWrite(ENA, pwmValue);
+  
+   Serial.print("wheel 1: ");
+  Serial.println(pwmValue);
+}
+
+// Function to run Motor 2
+void runMotor2(int speed) {
+  int pwmValue = map(abs(speed), 0, 127, 0, 100);  //mapping the pwm with the inopts of the joystick
+  pwmValue = constrain(pwmValue, 0, 100);          //limits the pwm to 100 max speed 
+
+  if (speed > 0) {
+    digitalWrite(IN2, HIGH);    //setting diection according to joystick input
+  } else if (speed < 0) {
+    digitalWrite(IN2, LOW);     //setting diection according to joystick input
+  } else {
+    pwmValue = 0;            
+  }
+
+  analogWrite(ENB, pwmValue);
+
+  Serial.print("wheel 2: ");
+  Serial.println(pwmValue);
+}
+
+// Function to run Motor 3
+void runMotor3(int speed) {
+  int pwmValue = map(abs(speed), 0, 127, 0, 100);   //mapping the pwm with the inopts of the joystick
+  pwmValue = constrain(pwmValue, 0, 100);           //limits the pwm to 100 max speed 
+
+
+  if (speed > 0) {
+    digitalWrite(IN3, HIGH);    //setting diection according to joystick input
+  } else if (speed < 0) {
+    digitalWrite(IN3, LOW);     //setting diection according to joystick input
+  } else {
+    pwmValue = 0;
+  }
+
+  analogWrite(ENC, pwmValue);
+
+  Serial.print("wheel 3: ");
+  Serial.println(pwmValue);
+}
